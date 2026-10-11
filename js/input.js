@@ -62,52 +62,68 @@ WH.Input = (function () {
     for (const k in keys) keys[k] = false;
   });
 
-  function readPad() {
+  // Every connected pad counts. Reading only the first slot broke play
+  // whenever Steam or a virtual device sat in slot 1 ahead of the real pad.
+  function readPads() {
+    const out = [];
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (const p of pads) if (p && p.connected) out.push(p);
+    return out;
+  }
+
+  // Sticks double as a d-pad for menus. Latched with hysteresis: engage
+  // past 0.35 (a light flick counts), release under 0.2 (edge jitter can't
+  // double-fire one push).
+  const NAV_ON = 0.35, NAV_OFF = 0.2;
+  const navLatch = { left: false, right: false, up: false, down: false };
+  const digital = {}; // keys + pad buttons only, no stick (feeds movement)
+
+  function strongest(pads, ix, iy, standardOnly) {
+    let bx = 0, by = 0;
     for (const p of pads) {
-      if (p && p.connected) return p;
+      // on non-standard pads, axes 2/3 can be triggers resting at -1
+      if (standardOnly && p.mapping !== "standard") continue;
+      const x = p.axes[ix] || 0, y = p.axes[iy] || 0;
+      if (Math.hypot(x, y) > Math.hypot(bx, by)) { bx = x; by = y; }
     }
-    return null;
+    return [bx, by];
   }
 
   I.update = function () {
-    const pad = readPad();
-    padConnected = !!pad;
-    if (pad) {
-      // any button press unlocks audio too
-      if (pad.buttons.some((b) => b.pressed)) {
-        WH.Audio.unlock();
-        WH.Audio.resumePending();
-        anyKeyRaw = true;
-      }
+    const pads = readPads();
+    padConnected = pads.length > 0;
+    // any button press unlocks audio too
+    if (pads.some((p) => p.buttons.some((b) => b.pressed))) {
+      WH.Audio.unlock();
+      WH.Audio.resumePending();
+      anyKeyRaw = true;
     }
+
+    const [lx, ly] = strongest(pads, 0, 1, false);
+    const [rx, ry] = strongest(pads, 2, 3, true);
+    const nx = Math.abs(rx) > Math.abs(lx) ? rx : lx;
+    const ny = Math.abs(ry) > Math.abs(ly) ? ry : ly;
+    const latch = (v, on) => (on ? v > NAV_OFF : v > NAV_ON);
+    navLatch.right = latch(nx, navLatch.right);
+    navLatch.left = latch(-nx, navLatch.left);
+    navLatch.down = latch(ny, navLatch.down);
+    navLatch.up = latch(-ny, navLatch.up);
 
     for (const name in KEYMAP) {
       const kb = KEYMAP[name].some((code) => keys[code]);
-      let gp = false;
-      if (pad) {
-        gp = (PADMAP[name] || []).some((idx) => pad.buttons[idx] && pad.buttons[idx].pressed);
-        // the left stick doubles as a d-pad, so menus and perk cards respond
-        // to it too — pushing the stick is the first thing every player tries
-        const sx = pad.axes[0] || 0, sy = pad.axes[1] || 0;
-        if (name === "left" && sx < -0.5) gp = true;
-        if (name === "right" && sx > 0.5) gp = true;
-        if (name === "up" && sy < -0.5) gp = true;
-        if (name === "down" && sy > 0.5) gp = true;
-      }
+      const btn = pads.some((p) =>
+        (PADMAP[name] || []).some((idx) => p.buttons[idx] && p.buttons[idx].pressed));
+      digital[name] = kb || btn;
       prev[name] = held[name];
-      held[name] = kb || gp;
+      held[name] = digital[name] || !!navLatch[name];
     }
 
-    // analog axes
-    axX = (held.right ? 1 : 0) - (held.left ? 1 : 0);
-    axY = (held.down ? 1 : 0) - (held.up ? 1 : 0);
-    if (pad) {
-      const dz = 0.28;
-      const gx = pad.axes[0] || 0, gy = pad.axes[1] || 0;
-      if (Math.abs(gx) > dz) axX = Math.abs(gx) > Math.abs(axX) ? gx : axX;
-      if (Math.abs(gy) > dz) axY = Math.abs(gy) > Math.abs(axY) ? gy : axY;
-    }
+    // movement: keys/d-pad give full speed, the left stick stays truly analog
+    axX = (digital.right ? 1 : 0) - (digital.left ? 1 : 0);
+    axY = (digital.down ? 1 : 0) - (digital.up ? 1 : 0);
+    const dz = 0.28;
+    if (Math.abs(lx) > dz && Math.abs(lx) > Math.abs(axX)) axX = lx;
+    if (Math.abs(ly) > dz && Math.abs(ly) > Math.abs(axY)) axY = ly;
     axX = WH.U.clamp(axX, -1, 1);
     axY = WH.U.clamp(axY, -1, 1);
 
@@ -123,17 +139,18 @@ WH.Input = (function () {
 
   // controller rumble (no-op without a pad or on pads without an actuator)
   I.rumble = function (strong, weak, ms) {
-    const pad = readPad();
-    const act = pad && pad.vibrationActuator;
-    if (!act || typeof act.playEffect !== "function") return;
-    try {
-      act.playEffect("dual-rumble", {
-        duration: ms || 120,
-        strongMagnitude: WH.U.clamp(strong || 0, 0, 1),
-        weakMagnitude: WH.U.clamp(weak === undefined ? strong || 0 : weak, 0, 1),
-        startDelay: 0,
-      });
-    } catch (e) { /* older pads/browsers: silently skip */ }
+    for (const pad of readPads()) {
+      const act = pad.vibrationActuator;
+      if (!act || typeof act.playEffect !== "function") continue;
+      try {
+        act.playEffect("dual-rumble", {
+          duration: ms || 120,
+          strongMagnitude: WH.U.clamp(strong || 0, 0, 1),
+          weakMagnitude: WH.U.clamp(weak === undefined ? strong || 0 : weak, 0, 1),
+          startDelay: 0,
+        });
+      } catch (e) { /* older pads/browsers: silently skip */ }
+    }
   };
 
   // human-readable prompts that adapt to input device

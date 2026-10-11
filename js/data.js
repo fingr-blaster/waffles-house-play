@@ -326,13 +326,22 @@ WH.Data = (function () {
 
   // ---------------------------------------------------------------- GRADES
   // Grade by final score.
+  // Calibrated to what a night can actually pay: a flawless run (all 56
+  // customers, maxed combo, every early-clear bonus, both bosses flawless)
+  // earns roughly $1,640, or ~$1,900 with Big Tips Energy. S demands
+  // near-perfection; A is a strong night; B means you held the line.
   D.GRADES = [
     { min: 0,     grade: "D",  title: "DISH PIG",        line: "You survived. The dishes did not." },
-    { min: 900,   grade: "C",  title: "BATTER PRIVATE",  line: "Some waffles were harmed in the making of this shift." },
-    { min: 1800,  grade: "B",  title: "GRIDDLE SERGEANT", line: "Crisp on the outside. Unbothered on the inside." },
-    { min: 2800,  grade: "A",  title: "GRILL SERGEANT MAJOR", line: "The regulars whisper your name with syrupy reverence." },
-    { min: 4000,  grade: "S",  title: "WAFL GOD",        line: "FEMA lists YOU as critical infrastructure." },
+    { min: 400,   grade: "C",  title: "BATTER PRIVATE",  line: "Some waffles were harmed in the making of this shift." },
+    { min: 800,   grade: "B",  title: "GRIDDLE SERGEANT", line: "Crisp on the outside. Unbothered on the inside." },
+    { min: 1150,  grade: "A",  title: "GRILL SERGEANT MAJOR", line: "The regulars whisper your name with syrupy reverence." },
+    { min: 1450,  grade: "S",  title: "WAFL GOD",        line: "FEMA lists YOU as critical infrastructure." },
   ];
+  D.gradeFor = function (score) {
+    let g = D.GRADES[0];
+    for (const gr of D.GRADES) if (score >= gr.min) g = gr;
+    return g;
+  };
 
   D.GAMEOVER_LINES = [
     "You got 86'd.",

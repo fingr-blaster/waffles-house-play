@@ -13,8 +13,17 @@ WH.Cosmetics = (function () {
     return (t && t[key]) || 0;
   };
 
-  C.isUnlocked = function (item) {
+  // genuinely earned through play
+  C.earned = function (item) {
     return !item.unlock || C.stat(item.unlock.stat) >= item.unlock.n;
+  };
+
+  // wearable right now: earned, or the developer-mode "unlock all" switch
+  // is on. The switch never touches real progress, so NEW! badges and the
+  // Shift Report's unlock announcements still track what you truly earned.
+  C.isUnlocked = function (item) {
+    const dev = WH.Save.data.dev;
+    return C.earned(item) || !!(dev && dev.enabled && dev.unlockAll);
   };
 
   C.progress = function (item) {
@@ -25,7 +34,7 @@ WH.Cosmetics = (function () {
   // ids of every unlockable (non-default) item the player has earned
   C.earnedIds = function () {
     return D.UNIFORMS.concat(D.HEADWEAR)
-      .filter((i) => i.unlock && C.isUnlocked(i))
+      .filter((i) => i.unlock && C.earned(i))
       .map((i) => i.id);
   };
 

@@ -8,9 +8,37 @@ WH.Flow = (function () {
   const F = {};
   const U = WH.U, D = WH.Data, N = WH.Night, G = WH.Game;
 
-  F.startNight = function () {
+  // fresh run state, plus any developer-mode modifiers
+  function freshRun() {
     N.reset();
+    const dev = WH.Save.data.dev;
+    if (!dev.enabled) return;
+    if (dev.allPerks) {
+      N.perks = new Set(D.PERKS.map((p) => p.id));
+      N.linecookStation = U.pick(["iron", "eggs", "bacon", "hash"]);
+    }
+    N.heat = dev.heat || 0;
+  }
+
+  F.startNight = function () {
+    freshRun();
     F.gotoHour(0);
+  };
+
+  // developer mode: start a normal night from any hour
+  F.startNightAt = function (h) {
+    freshRun();
+    F.gotoHour(h);
+  };
+
+  // developer mode: a single fight that returns to the dev menu either way
+  F.devFight = function (hour, config) {
+    freshRun();
+    N.hour = hour;
+    const back = (msg) => G.transition(() => G.setScene(WH.Menus.DevScene(msg)));
+    G.setScene(WH.FightScene(hour, config,
+      () => back("FIGHT WON — back in the lab"),
+      () => back("KNOCKED OUT — try god mode?")));
   };
 
   F.gotoHour = function (h) {

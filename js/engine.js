@@ -16,9 +16,23 @@ WH.Save = (function () {
       // the Locker: indexes into SKIN_TONES / HAIR_COLORS, ids for the rest;
       // `seen` = unlock ids already shown, drives the title's NEW! badge
       cosmetics: { skin: 1, hair: 1, headwear: "paper", uniform: "rookie", seen: [] },
+      // hidden developer mode (unlocked by a secret code in Settings)
+      dev: { enabled: false, god: false, allPerks: false, unlockAll: false, hud: false, heat: 0 },
       seenHowTo: false,
     },
   };
+  const DEFAULTS = JSON.parse(JSON.stringify(S.data));
+
+  // developer tool: wipe progress (stats, unlocks, best night, first-run
+  // how-to) but keep audio settings and developer mode itself
+  S.resetProgress = function () {
+    for (const k of ["high", "totals", "cosmetics"]) {
+      S.data[k] = JSON.parse(JSON.stringify(DEFAULTS[k]));
+    }
+    S.data.seenHowTo = false;
+    S.save();
+  };
+
   S.load = function () {
     try {
       const raw = localStorage.getItem(KEY);
@@ -29,8 +43,15 @@ WH.Save = (function () {
           if (parsed[k]) Object.assign(S.data[k], parsed[k]);
         }
         if (parsed.seenHowTo) S.data.seenHowTo = true;
+        if (parsed.dev) Object.assign(S.data.dev, parsed.dev);
       }
     } catch (e) { /* corrupted or blocked storage — play with defaults */ }
+    // re-grade the stored best night so it always matches current thresholds
+    if (S.data.high.score > 0) {
+      const gr = WH.Data.gradeFor(S.data.high.score);
+      S.data.high.grade = gr.grade;
+      S.data.high.title = gr.title;
+    }
     WH.Audio.settings.master = S.data.settings.master;
     WH.Audio.settings.music = S.data.settings.music;
     WH.Audio.settings.sfx = S.data.settings.sfx;
@@ -181,7 +202,16 @@ WH.Game = (function () {
   const STEP = 1 / 60;
 
   G.debug = /[?&]debug=1/.test(location.search);
-  G.debugInvuln = false;
+  // Developer mode lives in the save (hidden Settings code); ?debug=1 forces
+  // the tooling on for automated tests regardless.
+  const dev = () => WH.Save.data.dev;
+  G.devOn = () => G.debug || dev().enabled;
+  G.devTools = () => G.debug || (dev().enabled && dev().hud); // overlay + F-keys
+  let invuln = false;
+  Object.defineProperty(G, "debugInvuln", {
+    get: () => invuln || (dev().enabled && dev().god),
+    set: (v) => { invuln = !!v; },
+  });
 
   G.init = function () {
     canvas = document.getElementById("game");
@@ -284,12 +314,13 @@ WH.Game = (function () {
       ctx.fillRect(0, 0, W, H);
     }
 
-    if (G.debug) {
+    if (G.devTools()) {
       ctx.fillStyle = "#5fd668";
       ctx.font = '10px "Courier New", monospace';
       ctx.fillText(
         `DEBUG hour:${WH.Night.hour} hp:${Math.round(WH.Night.hp)} heat:${WH.Night.heat.toFixed(1)} $${WH.Night.cash}` +
-        (G.debugInvuln ? " [INVULN]" : ""),
+        (G.debugInvuln ? " [INVULN]" : "") +
+        "  F1 skip  F2 +$200  F3 heal  F4 god",
         6, H - 6
       );
     }
@@ -327,11 +358,15 @@ WH.Game = (function () {
 
   // debug hotkeys
   window.addEventListener("keydown", (e) => {
-    if (!G.debug) return;
+    if (!G.devTools()) return;
     if (e.code === "F1") { e.preventDefault(); if (scene && scene.debugSkip) scene.debugSkip(); }
     if (e.code === "F2") { e.preventDefault(); WH.Night.addCash(200); }
     if (e.code === "F3") { e.preventDefault(); WH.Night.hp = WH.Night.maxHp; }
-    if (e.code === "F4") { e.preventDefault(); G.debugInvuln = !G.debugInvuln; }
+    if (e.code === "F4") {
+      e.preventDefault();
+      if (dev().enabled) { dev().god = !dev().god; WH.Save.save(); }
+      else invuln = !invuln;
+    }
   });
 
   return G;

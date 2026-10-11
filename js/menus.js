@@ -97,7 +97,8 @@ WH.Menus = (function () {
       }
       T.text(g, D.DISCLAIMER, 480, 512, 10, "#726a5c", "center", false);
       T.text(g, `${I.hasPad() ? "GAMEPAD CONNECTED" : "KEYBOARD"} · [${I.prompt("interact")}] SELECT`, 480, 528, 10, "#726a5c", "center", false);
-      T.text(g, "v1.4", 946, 528, 10, "#726a5c", "right", false);
+      T.text(g, "v1.5", 946, 528, 10, "#726a5c", "right", false);
+      if (WH.Save.data.dev.enabled) T.text(g, "DEV MODE", 946, 22, 12, "#5fd668", "right");
       drawVignette(g);
     };
     return self;
@@ -394,19 +395,35 @@ WH.Menus = (function () {
   M.SettingsScene = function (isOverlay, underScene) {
     const self = { sel: 0, kind: "settings" };
     const st = WH.Save.data.settings;
-    const items = () => [
-      { label: "MASTER VOLUME", value: Math.round(st.master * 10) },
-      { label: "MUSIC VOLUME", value: Math.round(st.music * 10) },
-      { label: "SFX VOLUME", value: Math.round(st.sfx * 10) },
-      { label: "SCREEN SHAKE", value: st.shake ? "ON" : "OFF" },
-      { label: "BACK", value: "" },
-    ];
+    const dev = WH.Save.data.dev;
+    let toastT = 0, toastMsg = "";
+    // Hidden developer-mode code, entered on this screen:
+    // UP UP DOWN DOWN LEFT RIGHT LEFT RIGHT, then DODGE, then INTERACT
+    // (controller: ...B, A   keyboard: arrows/WASD ...SPACE, E)
+    const CODE = ["up", "up", "down", "down", "left", "right", "left", "right", "dodge", "interact"];
+    const TOKENS = ["up", "down", "left", "right", "dodge", "interact"];
+    const buf = [];
+
+    const items = () => {
+      const list = [
+        { id: "master", label: "MASTER VOLUME", value: Math.round(st.master * 10) },
+        { id: "music", label: "MUSIC VOLUME", value: Math.round(st.music * 10) },
+        { id: "sfx", label: "SFX VOLUME", value: Math.round(st.sfx * 10) },
+        { id: "shake", label: "SCREEN SHAKE", value: st.shake ? "ON" : "OFF" },
+      ];
+      if (dev.enabled && !isOverlay) list.push({ id: "dev", label: "DEVELOPER MENU", value: "" });
+      list.push({ id: "back", label: "BACK", value: "" });
+      return list;
+    };
+    const curId = () => (items()[self.sel] || items()[0]).id;
 
     function adjust(dir) {
-      if (self.sel === 0) st.master = U.clamp(st.master + dir * 0.1, 0, 1);
-      if (self.sel === 1) st.music = U.clamp(st.music + dir * 0.1, 0, 1);
-      if (self.sel === 2) st.sfx = U.clamp(st.sfx + dir * 0.1, 0, 1);
-      if (self.sel === 3) st.shake = !st.shake;
+      const id = curId();
+      if (id === "master") st.master = U.clamp(st.master + dir * 0.1, 0, 1);
+      else if (id === "music") st.music = U.clamp(st.music + dir * 0.1, 0, 1);
+      else if (id === "sfx") st.sfx = U.clamp(st.sfx + dir * 0.1, 0, 1);
+      else if (id === "shake") st.shake = !st.shake;
+      else return;
       WH.Audio.settings.master = st.master;
       WH.Audio.settings.music = st.music;
       WH.Audio.settings.sfx = st.sfx;
@@ -422,15 +439,38 @@ WH.Menus = (function () {
       else G.transition(() => G.setScene(M.TitleScene()));
     }
 
+    function checkCode() {
+      for (const tk of TOKENS) if (I.pressed(tk)) buf.push(tk);
+      while (buf.length > CODE.length) buf.shift();
+      if (buf.length === CODE.length && buf.every((tk, i) => tk === CODE[i])) {
+        buf.length = 0;
+        toastT = 2.8;
+        if (dev.enabled) {
+          toastMsg = "DEVELOPER MODE IS ALREADY ON";
+        } else {
+          dev.enabled = true;
+          WH.Save.save();
+          toastMsg = "DEVELOPER MODE UNLOCKED";
+          WH.Audio.sfx("perk");
+        }
+        return true;
+      }
+      return false;
+    }
+
     self.update = function (dt) {
+      toastT = Math.max(0, toastT - dt);
+      if (checkCode()) return; // swallow the final press so it can't act
       const its = items();
       if (I.pressed("up")) { self.sel = (self.sel + its.length - 1) % its.length; WH.Audio.sfx("uiMove"); }
       if (I.pressed("down")) { self.sel = (self.sel + 1) % its.length; WH.Audio.sfx("uiMove"); }
       if (I.pressed("left")) adjust(-1);
       if (I.pressed("right")) adjust(1);
       if (I.pressed("interact") || I.pressed("attack")) {
-        if (self.sel === 3) adjust(1);
-        else if (self.sel === 4) leave();
+        const id = curId();
+        if (id === "shake") adjust(1);
+        else if (id === "dev") { WH.Audio.sfx("uiSelect"); G.transition(() => G.setScene(M.DevScene())); }
+        else if (id === "back") leave();
       }
       if (I.pressed("pause")) leave();
     };
@@ -456,7 +496,134 @@ WH.Menus = (function () {
           }
         }
       });
-      T.text(g, "◄ ► to adjust", 480, 460, 12, "#8f8878", "center");
+      T.text(g, "◄ ► to adjust", 480, 470, 12, "#8f8878", "center");
+      if (toastT > 0) {
+        g.globalAlpha = Math.min(1, toastT);
+        T.text(g, toastMsg, 480, 500, 18, "#5fd668", "center");
+        g.globalAlpha = 1;
+      }
+    };
+    return self;
+  };
+
+  // ---------------------------------------------------------------- DEVELOPER MENU
+  // Only reachable once developer mode is unlocked via the Settings code.
+  M.DevScene = function (msg) {
+    const self = { kind: "dev", sel: 0 };
+    const dev = WH.Save.data.dev;
+    let t = 0;
+    let toastT = msg ? 2.5 : 0, toastMsg = msg || "";
+    let resetArmed = 0;
+    const BOSS_HOURS = [{ id: "earl", hour: 4 }, { id: "karenator", hour: 6 }];
+    const FOES = Object.keys(D.ENEMIES).concat(["mixed"]);
+    const HEATS = [0, 3, 6];
+    const pick = { hour: 0, boss: 0, foe: 0 };
+
+    const foeLabel = () => {
+      const id = FOES[pick.foe];
+      return id === "mixed" ? "MIXED WAVE ×5" : `${D.ENEMIES[id].name.toUpperCase()} ×3`;
+    };
+    const heatIdx = () => Math.max(0, HEATS.indexOf(dev.heat));
+    const rows = [
+      { id: "hour", label: "START NIGHT AT", value: () => `${D.HOURS[pick.hour].label} — ${D.HOURS[pick.hour].title}`, go: "PLAY" },
+      { id: "boss", label: "BOSS FIGHT", value: () => D.BOSSES[BOSS_HOURS[pick.boss].id].name, go: "FIGHT" },
+      { id: "foe", label: "TEST FIGHT", value: foeLabel, go: "FIGHT" },
+      { id: "heat", label: "STARTING WAFL INDEX", value: () => D.INDEX_LEVELS[heatIdx()].name },
+      { id: "allPerks", label: "START WITH ALL PERKS", toggle: true },
+      { id: "god", label: "GOD MODE (NO DAMAGE)", toggle: true },
+      { id: "unlockAll", label: "UNLOCK ALL LOCKER ITEMS", toggle: true },
+      { id: "hud", label: "DEBUG OVERLAY + F-KEYS", toggle: true },
+      { id: "reset", label: "RESET PROGRESS", value: () => (resetArmed > 0 ? "PRESS AGAIN TO WIPE" : "stats, unlocks, best night"), go: "WIPE" },
+      { id: "off", label: "TURN OFF DEVELOPER MODE" },
+      { id: "back", label: "BACK" },
+    ];
+
+    function toast(m) { toastMsg = m; toastT = 2.5; }
+
+    function cycle(dir) {
+      const r = rows[self.sel];
+      if (r.id === "hour") pick.hour = (pick.hour + dir + D.HOURS.length) % D.HOURS.length;
+      else if (r.id === "boss") pick.boss = (pick.boss + dir + BOSS_HOURS.length) % BOSS_HOURS.length;
+      else if (r.id === "foe") pick.foe = (pick.foe + dir + FOES.length) % FOES.length;
+      else if (r.id === "heat") { dev.heat = HEATS[(heatIdx() + dir + HEATS.length) % HEATS.length]; WH.Save.save(); }
+      else if (r.toggle) { dev[r.id] = !dev[r.id]; WH.Save.save(); }
+      else return;
+      WH.Audio.sfx("uiMove");
+    }
+
+    function activate() {
+      const r = rows[self.sel];
+      if (r.toggle || r.id === "heat") { cycle(1); return; }
+      WH.Audio.sfx("uiSelect");
+      if (r.id === "hour") {
+        G.transition(() => WH.Flow.startNightAt(pick.hour));
+      } else if (r.id === "boss") {
+        const b = BOSS_HOURS[pick.boss];
+        G.transition(() => WH.Flow.devFight(b.hour, { enemies: [], boss: b.id }));
+      } else if (r.id === "foe") {
+        const id = FOES[pick.foe];
+        const pool = Object.keys(D.ENEMIES);
+        const wave = id === "mixed" ? Array.from({ length: 5 }, () => U.pick(pool)) : [id, id, id];
+        G.transition(() => WH.Flow.devFight(5, { enemies: wave, sub: "(developer test fight)" }));
+      } else if (r.id === "reset") {
+        if (resetArmed > 0) {
+          WH.Save.resetProgress();
+          resetArmed = 0;
+          toast("PROGRESS WIPED — fresh employee file");
+        } else {
+          resetArmed = 2.5;
+          WH.Audio.sfx("buzz");
+        }
+      } else if (r.id === "off") {
+        dev.enabled = false;
+        WH.Save.save();
+        G.transition(() => G.setScene(M.SettingsScene()));
+      } else if (r.id === "back") {
+        G.transition(() => G.setScene(M.SettingsScene()));
+      }
+    }
+
+    self.update = function (dt) {
+      t += dt;
+      toastT = Math.max(0, toastT - dt);
+      resetArmed = Math.max(0, resetArmed - dt);
+      if (I.pressed("up")) { self.sel = (self.sel + rows.length - 1) % rows.length; resetArmed = 0; WH.Audio.sfx("uiMove"); }
+      if (I.pressed("down")) { self.sel = (self.sel + 1) % rows.length; resetArmed = 0; WH.Audio.sfx("uiMove"); }
+      if (I.pressed("left")) cycle(-1);
+      if (I.pressed("right")) cycle(1);
+      if (I.pressed("interact") || I.pressed("attack")) activate();
+      if (I.pressed("pause")) { WH.Audio.sfx("uiBack"); G.transition(() => G.setScene(M.SettingsScene())); }
+    };
+
+    self.draw = function (g) {
+      g.fillStyle = "#0b0f0c";
+      g.fillRect(0, 0, 960, 540);
+      g.fillStyle = "rgba(95,214,104,0.05)"; // scanlines, because developers
+      for (let y = 0; y < 540; y += 4) g.fillRect(0, y, 960, 1);
+      T.text(g, "DEVELOPER MENU", 480, 54, 30, "#5fd668", "center");
+      T.text(g, "for testing only — nothing in here touches what you've genuinely earned", 480, 78, 12, "#3f8a47", "center");
+      rows.forEach((r, i) => {
+        const on = i === self.sel;
+        const y = 116 + i * 31;
+        const danger = r.id === "reset" || r.id === "off";
+        T.text(g, (on ? "► " : "") + r.label, 120, y, on ? 16 : 14,
+          on ? (danger ? "#ff8f7f" : "#b8f0a8") : (danger ? "#a8584c" : "#5fd668"), "left", true, false);
+        let val = null, col = "#d8f5d0";
+        if (r.toggle) { val = dev[r.id] ? "ON" : "OFF"; col = dev[r.id] ? "#5fd668" : "#a8584c"; }
+        else if (r.value) val = r.value();
+        if (val !== null) {
+          if (on && (r.toggle || r.id === "heat" || r.id === "hour" || r.id === "boss" || r.id === "foe")) val = `◄ ${val} ►`;
+          T.text(g, val, 500, y, 14, r.id === "reset" && resetArmed > 0 ? "#ff5f4e" : col, "left", true, false);
+        }
+        if (on && r.go) T.text(g, `[${I.prompt("interact")}] ${r.go}`, 900, y, 13, "#ffd97f", "right", true, false);
+      });
+      T.text(g, `▲▼ choose   ◄► change   [${I.prompt("interact")}] go   [${I.prompt("pause")}] back`,
+        480, 476, 12, "#3f8a47", "center", true, false);
+      if (toastT > 0) {
+        g.globalAlpha = Math.min(1, toastT);
+        T.text(g, toastMsg, 480, 508, 16, "#ffd97f", "center");
+        g.globalAlpha = 1;
+      }
     };
     return self;
   };
@@ -465,11 +632,20 @@ WH.Menus = (function () {
   M.PauseOverlay = function (underScene) {
     const self = { sel: 0, kind: "pause" };
     const items = ["RESUME", "SETTINGS", "QUIT TO TITLE"];
+    // developer shortcuts that work from a controller (the F-keys don't)
+    if (WH.Save.data.dev.enabled) items.splice(1, 0, "DEV: SKIP AHEAD", "DEV: FULL HEAL");
     self.update = function (dt) {
       if (I.pressed("pause")) { WH.Audio.sfx("uiBack"); G.popOverlay(); return; }
       if (menuNav(self, items.length)) {
-        if (self.sel === 0) G.popOverlay();
-        else if (self.sel === 1) {
+        const it = items[self.sel];
+        if (it === "RESUME") G.popOverlay();
+        else if (it === "DEV: SKIP AHEAD") {
+          G.popOverlay();
+          if (underScene && underScene.debugSkip) underScene.debugSkip();
+        } else if (it === "DEV: FULL HEAL") {
+          N.hp = N.maxHp;
+          G.popOverlay();
+        } else if (it === "SETTINGS") {
           G.popOverlay();
           G.pushOverlay(M.SettingsScene(true, underScene));
         } else {
@@ -558,8 +734,10 @@ WH.Menus = (function () {
       // grace period: mashing punch through the fight's last hit must not
       // blind-pick the middle card the instant this screen appears
       if (t < 0.6) return;
-      if (I.pressed("left")) { self.sel = (self.sel + cards.length - 1) % cards.length; WH.Audio.sfx("uiMove"); }
-      if (I.pressed("right")) { self.sel = (self.sel + 1) % cards.length; WH.Audio.sfx("uiMove"); }
+      // cards sit in a row, but up/down also step through them — a stick
+      // nudged mostly vertically should still move the selection
+      if (I.pressed("left") || I.pressed("up")) { self.sel = (self.sel + cards.length - 1) % cards.length; WH.Audio.sfx("uiMove"); }
+      if (I.pressed("right") || I.pressed("down")) { self.sel = (self.sel + 1) % cards.length; WH.Audio.sfx("uiMove"); }
       if (I.pressed("interact") || I.pressed("attack")) {
         const perk = cards[self.sel];
         N.perks.add(perk.id);
@@ -615,8 +793,7 @@ WH.Menus = (function () {
     const self = { sel: 0, kind: "results" };
     let t = 0;
     const score = N.cash;
-    let grade = D.GRADES[0];
-    for (const gr of D.GRADES) if (score >= gr.min) grade = gr;
+    const grade = D.gradeFor(score);
     const items = ["CLOCK IN AGAIN", "BACK TO TITLE"];
     const isHigh = score > WH.Save.data.high.score;
     const failLine = U.pick(D.GAMEOVER_LINES); // picked once — no per-frame flicker
