@@ -136,6 +136,7 @@ WH.FightScene = function (hourIdx, config, onWin, onLose) {
     player.iframes = 0.7;
     player.x += (player.x < srcX ? -1 : 1) * 26;
     WH.Audio.sfx("hurt");
+    I.rumble(0.7, 0.4, 180);
     G.shake(5, 0.2);
     G.hitstop(3);
     WH.FX.float(player.x, player.y - 84, `-${dmg}`, "#ff5f4e", 15);
@@ -180,6 +181,7 @@ WH.FightScene = function (hourIdx, config, onWin, onLose) {
       N.addCash(e.def.score / 10);
       WH.FX.float(e.x, e.y - 90, `+$${Math.round(e.def.score / 10)}`, "#8fe07c", 14);
       WH.Audio.sfx("chairBreak");
+      I.rumble(e.boss ? 0.8 : 0.15, e.boss ? 0.8 : 0.3, e.boss ? 350 : 90);
     }
   }
 
@@ -227,6 +229,7 @@ WH.FightScene = function (hourIdx, config, onWin, onLose) {
             player.chair = true;
             N.stats.chairsCaught++;
             WH.Audio.sfx("parry");
+            I.rumble(0.4, 0.4, 150);
             G.hitstop(6);
             WH.FX.float(player.x, player.y - 95, "CAUGHT IT!", "#48d0c8", 18);
             WH.FX.burst(player.x, player.y - 50, "#48d0c8", 12, 160, 0.5);
@@ -341,6 +344,7 @@ WH.FightScene = function (hourIdx, config, onWin, onLose) {
     }
     if (haymaker && hit) {
       G.shake(7, 0.25);
+      I.rumble(0.3, 0.6, 120);
       WH.FX.float(player.x + player.facing * 50, player.y - 100, "HAYMAKER!", "#ffd97f", 18);
     }
   }

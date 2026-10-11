@@ -87,6 +87,13 @@ WH.Input = (function () {
       let gp = false;
       if (pad) {
         gp = (PADMAP[name] || []).some((idx) => pad.buttons[idx] && pad.buttons[idx].pressed);
+        // the left stick doubles as a d-pad, so menus and perk cards respond
+        // to it too — pushing the stick is the first thing every player tries
+        const sx = pad.axes[0] || 0, sy = pad.axes[1] || 0;
+        if (name === "left" && sx < -0.5) gp = true;
+        if (name === "right" && sx > 0.5) gp = true;
+        if (name === "up" && sy < -0.5) gp = true;
+        if (name === "down" && sy > 0.5) gp = true;
       }
       prev[name] = held[name];
       held[name] = kb || gp;
@@ -113,6 +120,21 @@ WH.Input = (function () {
   I.axisX = () => axX;
   I.axisY = () => axY;
   I.hasPad = () => padConnected;
+
+  // controller rumble (no-op without a pad or on pads without an actuator)
+  I.rumble = function (strong, weak, ms) {
+    const pad = readPad();
+    const act = pad && pad.vibrationActuator;
+    if (!act || typeof act.playEffect !== "function") return;
+    try {
+      act.playEffect("dual-rumble", {
+        duration: ms || 120,
+        strongMagnitude: WH.U.clamp(strong || 0, 0, 1),
+        weakMagnitude: WH.U.clamp(weak === undefined ? strong || 0 : weak, 0, 1),
+        startDelay: 0,
+      });
+    } catch (e) { /* older pads/browsers: silently skip */ }
+  };
 
   // human-readable prompts that adapt to input device
   I.prompt = function (name) {

@@ -90,7 +90,7 @@ WH.Menus = (function () {
       }
       T.text(g, D.DISCLAIMER, 480, 512, 10, "#726a5c", "center", false);
       T.text(g, `${I.hasPad() ? "GAMEPAD CONNECTED" : "KEYBOARD"} · [${I.prompt("interact")}] SELECT`, 480, 528, 10, "#726a5c", "center", false);
-      T.text(g, "v1.2", 946, 528, 10, "#726a5c", "right", false);
+      T.text(g, "v1.3", 946, 528, 10, "#726a5c", "right", false);
       drawVignette(g);
     };
     return self;
