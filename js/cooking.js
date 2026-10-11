@@ -381,6 +381,7 @@ WH.CookScene = function (hourIdx, onDone) {
       WH.Menus.openPause(self);
       return;
     }
+    WH.Scenery.update(dt);
 
     // spawns
     while (toSpawn.length && toSpawn[0].at <= t) {
@@ -854,6 +855,7 @@ WH.CookScene = function (hourIdx, onDone) {
 
   self.draw = function (g) {
     g.drawImage(S.bgKitchen, 0, 0);
+    WH.Scenery.draw(g);
     // wall clock hands
     const prog = t / HOUR_LEN;
     g.strokeStyle = "#4a3527";

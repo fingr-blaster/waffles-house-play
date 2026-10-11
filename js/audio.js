@@ -125,6 +125,11 @@ WH.Audio = (function () {
     dodge:    () => noise({ dur: 0.1, vol: 0.07, filter: "highpass", freq: 2000 }),
     throwF:   () => noise({ dur: 0.18, vol: 0.10, filter: "bandpass", freq: 1200, slide: 3000 }),
     splat:    () => { noise({ dur: 0.12, vol: 0.16, filter: "lowpass", freq: 800 }); tone({ freq: 300, type: "triangle", dur: 0.1, vol: 0.1, slide: 100 }); },
+    // street life outside the windows — deliberately quiet, it's background
+    bass:     () => tone({ freq: 52, type: "sine", dur: 0.18, vol: 0.10, slide: 40 }),
+    siren:    () => { [880, 660, 880, 660].forEach((f, i) => tone({ freq: f, type: "triangle", dur: 0.28, vol: 0.035, delay: i * 0.3 })); },
+    ufo:      () => { tone({ freq: 300, type: "sine", dur: 1.4, vol: 0.05, slide: 1200 }); tone({ freq: 312, type: "sine", dur: 1.4, vol: 0.04, slide: 1150, delay: 0.05 }); },
+    beep:     () => { tone({ freq: 1200, type: "square", dur: 0.07, vol: 0.04 }); tone({ freq: 1200, type: "square", dur: 0.07, vol: 0.04, delay: 0.12 }); },
   };
 
   A.sfx = function (name) {

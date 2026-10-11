@@ -649,6 +649,7 @@ WH.FightScene = function (hourIdx, config, onWin, onLose) {
       WH.Menus.openPause(self);
       return;
     }
+    WH.Scenery.update(dt);
 
     if (phase === "intro") {
       const lines = D.BOSSES[config.boss].intro;
@@ -717,6 +718,7 @@ WH.FightScene = function (hourIdx, config, onWin, onLose) {
 
   self.draw = function (g) {
     g.drawImage(S.bgArena, 0, 0);
+    WH.Scenery.draw(g);
 
     // puddles under everything
     for (const pd of puddles) {

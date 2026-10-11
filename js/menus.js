@@ -37,6 +37,7 @@ WH.Menus = (function () {
 
     self.update = function (dt) {
       t += dt;
+      WH.Scenery.update(dt);
       // ambient flying chair, as is tradition
       if (!chair && U.chance(dt * 0.15)) {
         chair = { x: -40, y: U.rand(160, 240), vx: U.rand(220, 320), spin: 0 };
@@ -68,6 +69,7 @@ WH.Menus = (function () {
 
     self.draw = function (g) {
       g.drawImage(S.bgArena, 0, 0);
+      WH.Scenery.draw(g);
       g.fillStyle = "rgba(10,7,5,0.55)";
       g.fillRect(0, 0, 960, 540);
 
@@ -97,7 +99,7 @@ WH.Menus = (function () {
       }
       T.text(g, D.DISCLAIMER, 480, 512, 10, "#726a5c", "center", false);
       T.text(g, `${I.hasPad() ? "GAMEPAD CONNECTED" : "KEYBOARD"} · [${I.prompt("interact")}] SELECT`, 480, 528, 10, "#726a5c", "center", false);
-      T.text(g, "v1.5", 946, 528, 10, "#726a5c", "right", false);
+      T.text(g, "v1.6", 946, 528, 10, "#726a5c", "right", false);
       if (WH.Save.data.dev.enabled) T.text(g, "DEV MODE", 946, 22, 12, "#5fd668", "right");
       drawVignette(g);
     };
@@ -517,7 +519,7 @@ WH.Menus = (function () {
     const BOSS_HOURS = [{ id: "earl", hour: 4 }, { id: "karenator", hour: 6 }];
     const FOES = Object.keys(D.ENEMIES).concat(["mixed"]);
     const HEATS = [0, 3, 6];
-    const pick = { hour: 0, boss: 0, foe: 0 };
+    const pick = { hour: 0, boss: 0, foe: 0, win: WH.Scenery.TYPES.indexOf("ufo") };
 
     const foeLabel = () => {
       const id = FOES[pick.foe];
@@ -528,6 +530,7 @@ WH.Menus = (function () {
       { id: "hour", label: "START NIGHT AT", value: () => `${D.HOURS[pick.hour].label} — ${D.HOURS[pick.hour].title}`, go: "PLAY" },
       { id: "boss", label: "BOSS FIGHT", value: () => D.BOSSES[BOSS_HOURS[pick.boss].id].name, go: "FIGHT" },
       { id: "foe", label: "TEST FIGHT", value: foeLabel, go: "FIGHT" },
+      { id: "window", label: "NEXT WINDOW EVENT", value: () => WH.Scenery.LABELS[WH.Scenery.TYPES[pick.win]], go: "QUEUE" },
       { id: "heat", label: "STARTING WAFL INDEX", value: () => D.INDEX_LEVELS[heatIdx()].name },
       { id: "allPerks", label: "START WITH ALL PERKS", toggle: true },
       { id: "god", label: "GOD MODE (NO DAMAGE)", toggle: true },
@@ -545,6 +548,7 @@ WH.Menus = (function () {
       if (r.id === "hour") pick.hour = (pick.hour + dir + D.HOURS.length) % D.HOURS.length;
       else if (r.id === "boss") pick.boss = (pick.boss + dir + BOSS_HOURS.length) % BOSS_HOURS.length;
       else if (r.id === "foe") pick.foe = (pick.foe + dir + FOES.length) % FOES.length;
+      else if (r.id === "window") pick.win = (pick.win + dir + WH.Scenery.TYPES.length) % WH.Scenery.TYPES.length;
       else if (r.id === "heat") { dev.heat = HEATS[(heatIdx() + dir + HEATS.length) % HEATS.length]; WH.Save.save(); }
       else if (r.toggle) { dev[r.id] = !dev[r.id]; WH.Save.save(); }
       else return;
@@ -565,6 +569,10 @@ WH.Menus = (function () {
         const pool = Object.keys(D.ENEMIES);
         const wave = id === "mixed" ? Array.from({ length: 5 }, () => U.pick(pool)) : [id, id, id];
         G.transition(() => WH.Flow.devFight(5, { enemies: wave, sub: "(developer test fight)" }));
+      } else if (r.id === "window") {
+        const type = WH.Scenery.TYPES[pick.win];
+        WH.Scenery.queue(type);
+        toast(`${WH.Scenery.LABELS[type]} queued — watch the diner windows`);
       } else if (r.id === "reset") {
         if (resetArmed > 0) {
           WH.Save.resetProgress();
@@ -612,7 +620,7 @@ WH.Menus = (function () {
         if (r.toggle) { val = dev[r.id] ? "ON" : "OFF"; col = dev[r.id] ? "#5fd668" : "#a8584c"; }
         else if (r.value) val = r.value();
         if (val !== null) {
-          if (on && (r.toggle || r.id === "heat" || r.id === "hour" || r.id === "boss" || r.id === "foe")) val = `◄ ${val} ►`;
+          if (on && (r.toggle || ["heat", "hour", "boss", "foe", "window"].includes(r.id))) val = `◄ ${val} ►`;
           T.text(g, val, 500, y, 14, r.id === "reset" && resetArmed > 0 ? "#ff5f4e" : col, "left", true, false);
         }
         if (on && r.go) T.text(g, `[${I.prompt("interact")}] ${r.go}`, 900, y, 13, "#ffd97f", "right", true, false);
