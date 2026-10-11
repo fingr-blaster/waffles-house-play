@@ -11,7 +11,11 @@ WH.Save = (function () {
     data: {
       high: { score: 0, grade: "-", title: "NOBODY (YET)" },
       settings: { master: 0.8, music: 0.6, sfx: 0.8, shake: true, reduceFlash: false },
-      totals: { nights: 0, wins: 0, customersFed: 0, enemiesKOd: 0, chairsCaught: 0, cashLifetime: 0 },
+      totals: { nights: 0, wins: 0, customersFed: 0, enemiesKOd: 0, chairsCaught: 0, cashLifetime: 0,
+                bossesBeaten: 0, karenBeaten: 0 },
+      // the Locker: indexes into SKIN_TONES / HAIR_COLORS, ids for the rest;
+      // `seen` = unlock ids already shown, drives the title's NEW! badge
+      cosmetics: { skin: 1, hair: 1, headwear: "paper", uniform: "rookie", seen: [] },
       seenHowTo: false,
     },
   };
@@ -21,7 +25,7 @@ WH.Save = (function () {
       if (raw) {
         const parsed = JSON.parse(raw);
         // shallow-merge known sections so new fields keep defaults
-        for (const k of ["high", "settings", "totals"]) {
+        for (const k of ["high", "settings", "totals", "cosmetics"]) {
           if (parsed[k]) Object.assign(S.data[k], parsed[k]);
         }
         if (parsed.seenHowTo) S.data.seenHowTo = true;
@@ -147,7 +151,7 @@ WH.Night = (function () {
     N.usedSecondWind = false;
     N.linecookStation = null;
     N.lastPerk = null;
-    N.stats = { served: 0, failed: 0, kos: 0, chairsCaught: 0, tips: 0, burned: 0 };
+    N.stats = { served: 0, failed: 0, kos: 0, chairsCaught: 0, tips: 0, burned: 0, bosses: 0, karen: 0 };
   };
   N.has = (perkId) => N.perks.has(perkId);
   N.indexLevel = function () {

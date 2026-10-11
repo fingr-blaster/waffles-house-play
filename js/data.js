@@ -249,6 +249,54 @@ WH.Data = (function () {
 
   D.STATION_NAMES = { iron: "Waffle Iron", eggs: "Egg Griddle", bacon: "Bacon Rack", hash: "Hash Top" };
 
+  // ---------------------------------------------------------------- THE LOCKER
+  // Cook customization. Skin tone and hair are always free choices; uniforms
+  // and some headwear unlock from LIFETIME stats (WH.Save totals), so every
+  // shift you've ever worked counts toward them.
+  D.SKIN_TONES = ["#f0c8a0", "#e8b48c", "#c98f5e", "#a8724a", "#8f5f3c", "#6e4428"];
+  D.HAIR_COLORS = ["#2c2c34", "#4a3428", "#8a5a1a", "#c9973e", "#b5533c", "#8a8a8a"];
+
+  // shirt, apron (null = no apron), accent (tints caps & beanies)
+  D.UNIFORMS = [
+    { id: "rookie", name: "The Rookie", shirt: "#f0ece0", apron: "#f0ece0", accent: "#b5533c",
+      desc: "Fresh off orientation. Still smells like optimism.", unlock: null },
+    { id: "nightowl", name: "Night Owl", shirt: "#2c3654", apron: "#8a919c", accent: "#48d0c8",
+      desc: "Sleeps when the sun's up. Like a vampire, but with hashbrowns.",
+      unlock: { stat: "nights", n: 3, text: "Work 3 shifts" } },
+    { id: "grillmaster", name: "Grill Master", shirt: "#2c2c34", apron: "#c93a2e", accent: "#c93a2e",
+      desc: "The grill doesn't sizzle for you. It sizzles AT you.",
+      unlock: { stat: "customersFed", n: 50, text: "Serve 50 customers" } },
+    { id: "sunrise", name: "Sunrise Survivor", shirt: "#e8a53a", apron: "#f5f0e6", accent: "#ff5f4e",
+      desc: "Saw 6 AM. Lived to tell it. Won't.",
+      unlock: { stat: "wins", n: 1, text: "Survive a full night" } },
+    { id: "chairbender", name: "The Chairbender", shirt: "#48d0c8", apron: "#ffd23e", accent: "#ffd23e",
+      desc: "Furniture fears you. As it should.",
+      unlock: { stat: "chairsCaught", n: 5, text: "Catch 5 flying chairs" } },
+    { id: "bouncer", name: "The Bouncer", shirt: "#3a3a44", apron: null, accent: "#c93a2e",
+      desc: "No apron. Aprons are for people who plan to stay clean.",
+      unlock: { stat: "enemiesKOd", n: 40, text: "Deck 40 troublemakers" } },
+    { id: "tycoon", name: "Tip Jar Tycoon", shirt: "#4a7c59", apron: "#ffd23e", accent: "#8fe07c",
+      desc: "Every dollar earned in quarters. Every quarter earned in sweat.",
+      unlock: { stat: "cashLifetime", n: 5000, text: "Earn $5,000 lifetime" } },
+    { id: "bossbreaker", name: "Boss Breaker", shirt: "#8a5c8f", apron: "#2c2c34", accent: "#ff5f4e",
+      desc: "Big Earl tells stories about you now.",
+      unlock: { stat: "bossesBeaten", n: 4, text: "Defeat 4 bosses" } },
+    { id: "legend", name: "Graveyard Legend", shirt: "#ffd23e", apron: "#2c2c34", accent: "#2c2c34",
+      desc: "Five sunrises. The neon sign flickers in your honor.",
+      unlock: { stat: "wins", n: 5, text: "Survive 5 full nights" } },
+  ];
+
+  D.HEADWEAR = [
+    { id: "paper", name: "Paper Hat", unlock: null },
+    { id: "cap", name: "Ball Cap", unlock: null },
+    { id: "beanie", name: "Beanie", unlock: null },
+    { id: "hair", name: "Just Hair", unlock: null },
+    { id: "fedora", name: "Philosopher's Fedora",
+      unlock: { stat: "nights", n: 10, text: "Work 10 shifts" } },
+    { id: "crown", name: "The Syrup Crown",
+      unlock: { stat: "karenBeaten", n: 1, text: "Defeat The Final Karen" } },
+  ];
+
   // ---------------------------------------------------------------- JUKEBOX
   D.JUKEBOX = [
     { title: "Raisins? In MY Toast?", artist: "The Grease Tones", track: "diner" },

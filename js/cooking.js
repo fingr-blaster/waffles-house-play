@@ -592,15 +592,19 @@ WH.CookScene = function (hourIdx, onDone) {
       g.fillStyle = "#c9ced6"; // splash guard
       g.fillRect(x - w / 2, y - 40, w, 6);
     } else if (st.id === "bacon") {
-      // grill grates over glowing embers
+      // charbroiler: the bacon sits on a near-black bed so it pops; the
+      // ember glow lives in a thin strip below the grates, never behind food
       g.fillStyle = "#4a3a34";
       g.fillRect(x - w / 2, y - 34, w, 44);
-      g.fillStyle = "#b5533c"; // ember glow
-      g.fillRect(x - w / 2 + 4, y - 30, w - 8, 20);
-      g.fillStyle = "#2c2420";
-      for (let gx = x - w / 2 + 6; gx < x + w / 2 - 6; gx += 8) {
-        g.fillRect(gx, y - 31, 4, 22);
+      g.fillStyle = "#1c1614"; // charcoal bed
+      g.fillRect(x - w / 2 + 4, y - 31, w - 8, 23);
+      g.fillStyle = "#5a5e66"; // steel grates
+      for (let gy = y - 28; gy < y - 9; gy += 5) {
+        g.fillRect(x - w / 2 + 4, gy, w - 8, 1);
       }
+      const flicker = 0.35 + Math.sin(performance.now() / 180) * 0.08;
+      g.fillStyle = `rgba(255,120,40,${flicker})`; // embers below
+      g.fillRect(x - w / 2 + 4, y - 8, w - 8, 3);
       g.fillStyle = "#7c4e28"; // side shelf
       g.fillRect(x - w / 2 - 6, y - 20, 6, 24);
     } else if (st.id === "hash") {
@@ -776,9 +780,7 @@ WH.CookScene = function (hourIdx, onDone) {
 
   function drawPlayer(g) {
     const pose = player.carry.length ? "carry" : player.moving ? "walk" : "idle";
-    S.drawDude(g, player.x, player.y, {
-      shirt: "#f0ece0", apron: true, hat: "paper", skin: "#e8b48c",
-    }, pose, player.animT, player.facing);
+    S.drawDude(g, player.x, player.y, WH.Cosmetics.cookOpts(), pose, player.animT, player.facing);
     // carried items in a neat row above the hat
     const n = player.carry.length;
     player.carry.forEach((item, i) => {

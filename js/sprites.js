@@ -31,7 +31,8 @@ WH.Sprites = (function () {
   const P = {
     w: "#e8b64c", W: "#c98f2e", d: "#8a5a1a", // waffle golds
     e: "#f5f0e6", y: "#ffc93e",               // egg white / yolk
-    b: "#b5533c", B: "#7e3428", f: "#e8a08a", // bacon
+    b: "#b5533c", B: "#7e3428", f: "#e8a08a", // bacon (legacy tones)
+    q: "#e0503a", Q: "#9a2f1f", u: "#ffe2c8", // bacon: bright meat, dark meat, fat
     h: "#d9a44c", H: "#a8742a", A: "#f2cd78", // hash golds + crispy highlight
     o: "#c9a2e8",                             // onion
     c: "#ffd23e",                             // cheese
@@ -67,14 +68,16 @@ WH.Sprites = (function () {
       ".eeeeeeee.",
       "..eeeeee..",
     ], P);
+    // two wavy strips: meat / fat / dark-meat bands, rippling every 3px
     S.icons.bacon = makeIcon([
-      "..........",
-      "bBbbfbbBb.",
-      ".bBbbfbbBb",
-      "bBbbfbbBb.",
-      ".bBbbfbbBb",
-      "bBbbfbbBb.",
-      "..........",
+      "qqq...qqq.",
+      "uuuqqquuuq",
+      "QQQuuuQQQu",
+      "...QQQ...Q",
+      ".qqq...qqq",
+      "quuuqqquuu",
+      "uQQQuuuQQQ",
+      "Q...QQQ...",
     ], P);
     // shredded golden pile: light strands + crispy dark edges
     S.icons.hash = makeIcon([
@@ -171,6 +174,16 @@ WH.Sprites = (function () {
   //       hurt | ko | sit | carry
   const u = 3; // pixel unit
 
+  // lighten (f > 0) or darken (f < 0) a #rrggbb color
+  function shade(hex, f) {
+    const n = parseInt(hex.slice(1), 16);
+    const tgt = f < 0 ? 0 : 255, p = Math.abs(f);
+    const ch = (v) => Math.round((tgt - v) * p + v);
+    const r = ch((n >> 16) & 255), gr = ch((n >> 8) & 255), b = ch(n & 255);
+    return "#" + ((1 << 24) | (r << 16) | (gr << 8) | b).toString(16).slice(1);
+  }
+  S.shade = shade;
+
   function rect(g, x, y, w, h, color) {
     g.fillStyle = color;
     g.fillRect(Math.round(x * u), Math.round(y * u), Math.round(w * u), Math.round(h * u));
@@ -226,8 +239,9 @@ WH.Sprites = (function () {
       // torso
       rect(g, -5 + lean, -15 - bob, 10, 9, shirt);
       if (opts.apron) {
-        rect(g, -4 + lean, -13 - bob, 8, 7, "#f0ece0");
-        rect(g, -4 + lean, -13 - bob, 8, 1, "#d8d4c8");
+        const ac = opts.apronColor || "#f0ece0";
+        rect(g, -4 + lean, -13 - bob, 8, 7, ac);
+        rect(g, -4 + lean, -13 - bob, 8, 1, shade(ac, -0.12));
       }
       // arms by pose
       g.fillStyle = skin;
@@ -280,7 +294,17 @@ WH.Sprites = (function () {
 
     // hats & hair
     const hat = opts.hat || "none";
-    if (hat === "paper") { // classic cook's paper hat
+    // hair peeking out the back from under headwear (customizable cooks)
+    if (opts.sideburns && opts.hairColor && hat !== "hair" && hat !== "none") {
+      rect(g, -4 + lean, headY, 2, 4, opts.hairColor);
+    }
+    if (hat === "crown") {
+      rect(g, -4 + lean, headY - 2, 8, 2, "#ffd23e");
+      rect(g, -4 + lean, headY - 4, 1.5, 2, "#ffd23e");
+      rect(g, -0.75 + lean, headY - 4.6, 1.5, 2.6, "#ffd23e");
+      rect(g, 2.5 + lean, headY - 4, 1.5, 2, "#ffd23e");
+      rect(g, -0.5 + lean, headY - 1.6, 1, 1, "#c93a2e"); // jewel
+    } else if (hat === "paper") { // classic cook's paper hat
       rect(g, -4 + lean, headY - 4, 8, 4, "#f5f0e6");
       rect(g, -4 + lean, headY - 0.8, 8, 0.8, "#c8c4b8");
     } else if (hat === "cap") {

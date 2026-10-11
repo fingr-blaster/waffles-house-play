@@ -178,6 +178,10 @@ WH.FightScene = function (hourIdx, config, onWin, onLose) {
       e.state = "koing";
       e.stateT = 0;
       N.stats.kos++;
+      if (e.boss) {
+        N.stats.bosses++;
+        if (e.def.id === "karenator") N.stats.karen++;
+      }
       N.addCash(e.def.score / 10);
       WH.FX.float(e.x, e.y - 90, `+$${Math.round(e.def.score / 10)}`, "#8fe07c", 14);
       WH.Audio.sfx("chairBreak");
@@ -753,7 +757,7 @@ WH.FightScene = function (hourIdx, config, onWin, onLose) {
         if (player.state === "ko") pose = "ko";
         if (player.blockT > 0) pose = "block";
         if (player.iframes > 0 && Math.floor(performance.now() / 80) % 2 === 0) g.globalAlpha = 0.5;
-        S.drawDude(g, player.x, player.y, { shirt: "#f0ece0", apron: true, hat: "paper" }, pose, player.animT, player.facing);
+        S.drawDude(g, player.x, player.y, WH.Cosmetics.cookOpts(), pose, player.animT, player.facing);
         g.globalAlpha = 1;
         if (player.chair) {
           S.drawChair(g, player.x + player.facing * 6, player.y - 66, player.facing * -0.4);
